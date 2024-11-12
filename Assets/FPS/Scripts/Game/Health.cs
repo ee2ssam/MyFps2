@@ -65,6 +65,7 @@ namespace Unity.FPS.Game
             float beforeHealth = CurrentHealth;
             CurrentHealth -= damage;
             CurrentHealth = Mathf.Clamp(CurrentHealth, 0f, maxHealth);
+            Debug.Log($"CurrentHealth: {CurrentHealth}");
 
             //real Damage ±¸ÇÏ±â
             float realDamage = beforeHealth - CurrentHealth;
