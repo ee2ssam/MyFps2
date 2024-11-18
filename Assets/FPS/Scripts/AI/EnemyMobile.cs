@@ -33,6 +33,10 @@ namespace Unity.FPS.AI
         //데미지 - 이펙트
         public ParticleSystem[] randomHitSparks;
 
+        //Detected
+        public ParticleSystem[] detectedVfxs;
+        public AudioClip detectedSfx;
+
         //animation parameter
         const string k_AnimAttackParameter = "Attack";
         const string k_AnimMoveSpeedParameter = "MoveSpeed";
@@ -46,6 +50,8 @@ namespace Unity.FPS.AI
             //참조            
             enemyController = GetComponent<EnemyController>();
             enemyController.Damaged += OnDamaged;
+            enemyController.OnDetectedTarget += OnDetected;
+            enemyController.OnLostTarget += OnLost;
 
             audioSource = GetComponent<AudioSource>();
             audioSource.clip = movementSound;
@@ -57,7 +63,8 @@ namespace Unity.FPS.AI
 
         private void Update()
         {
-            //상태구현
+            //상태 변경/구현
+            UpdateAiStateTransition();
             UpdateCurrentAiState();
 
             //속도에 따른 애니/사운드 효과
@@ -76,8 +83,37 @@ namespace Unity.FPS.AI
                     enemyController.SetNavDestination(enemyController.GetDestinationOnPath());
                     break;
                 case AIState.Follow:
+                    enemyController.SetNavDestination(enemyController.KnonwDetectedTarget.transform.position);
+                    enemyController.OrientToward(enemyController.KnonwDetectedTarget.transform.position);
+                    enemyController.OrientWeaponsToward(enemyController.KnonwDetectedTarget.transform.position);
                     break;
                 case AIState.Attack:
+                    enemyController.OrientToward(enemyController.KnonwDetectedTarget.transform.position);
+                    enemyController.OrientWeaponsToward(enemyController.KnonwDetectedTarget.transform.position);
+                    enemyController.TryAttack(enemyController.KnonwDetectedTarget.transform.position);
+                    break;
+            }
+        }
+
+        //상태 변경에 따른 구현
+        private void UpdateAiStateTransition()
+        {
+            switch (AiState)
+            {
+                case AIState.Patrol: 
+                    break;
+                case AIState.Follow:
+                    if(enemyController.IsSeeingTarget && enemyController.IsTargetInAttackRange)
+                    {
+                        AiState = AIState.Attack;
+                        enemyController.SetNavDestination(transform.position);  //정지
+                    }
+                    break;
+                case AIState.Attack:
+                    if (enemyController.IsTargetInAttackRange == false)
+                    {
+                        AiState = AIState.Follow;
+                    }
                     break;
             }
         }
@@ -93,6 +129,39 @@ namespace Unity.FPS.AI
 
             //데미지 애니
             animator.SetTrigger(k_AnimOnDamagedParameter);
+        }
+
+        private void OnDetected()
+        {
+            //상태 변경
+            AiState = AIState.Follow;
+
+            //Vfx
+            for (int i = 0; i < detectedVfxs.Length; i++)
+            {
+                detectedVfxs[i].Play();
+            }
+
+            //Sfx
+            if(detectedSfx)
+            {
+                AudioUtility.CreateSfx(detectedSfx, this.transform.position, 1f);
+            }
+
+            //anim
+            animator.SetBool(k_AnimAlertedParameter, true);
+        }
+
+        private void OnLost()
+        {
+            //Vfx
+            for (int i = 0; i < detectedVfxs.Length; i++)
+            {
+                detectedVfxs[i].Stop();
+            }
+
+            //anim
+            animator.SetBool(k_AnimAlertedParameter, false);
         }
 
     }
